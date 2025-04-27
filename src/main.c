@@ -138,7 +138,24 @@ void WriteСonversationHtml(const cJSON *conv) {
       char *quoteSeparator = strstr(cleaned_content, QUOTE_MARK);
       if (quoteSeparator) {
         // First show answer, without QUOTE MARKS and first space ' '
-        fprintf(resultFile, "%s<br>\n", quoteSeparator + strlen(QUOTE_MARK));
+        // fprintf(resultFile, "%s<br>\n", quoteSeparator + strlen(QUOTE_MARK));
+
+        const char *slider = quoteSeparator + strlen(QUOTE_MARK);
+        int numEmptyLines = 0;
+
+        // TODO 1: make separate function for this with flag
+        // 1 for showing which part to write (quote or plain)
+        // second flag for showing for html or txt formatting
+        while (*slider) {
+          if (*slider == '\n') {
+            if (++numEmptyLines <= MAX_EMPTY_LINES) {
+              fputs("<br>\n", resultFile);
+            }
+          } else {
+            fputc(*slider, resultFile);
+          }
+          ++slider;
+        }
 
         fputs(
             "<blockquote style=\"margin-left:20px; color:gray; border-left: "
@@ -147,19 +164,22 @@ void WriteСonversationHtml(const cJSON *conv) {
 
         // Show by lines
         const char *lineStart = cleaned_content + strlen(TIMESTAMP);
-        int numEmptyLines = 0;
+        const char *lineEnd = NULL;
+        numEmptyLines = 0;
 
+        // TODO 1: make separate function for this with flag
+        // 1 for showing which part to write (quote or plain)
+        // second flag for showing for html or txt formatting
         while (lineStart < quoteSeparator) {
           numEmptyLines = (*lineStart == '\n') ? numEmptyLines + 1 : 0;
-          const char *lineEnd =
-              memchr(lineStart, '\n', quoteSeparator - lineStart);
+          lineEnd = memchr(lineStart, '\n', quoteSeparator - lineStart);
 
           if (!lineEnd) {
             lineEnd = quoteSeparator;
           }
 
           // No more than MAX_EMPTY_LINES empty lines in a row
-          if (numEmptyLines < MAX_EMPTY_LINES) {
+          if (numEmptyLines <= MAX_EMPTY_LINES) {
             fwrite(lineStart, 1, lineEnd - lineStart, resultFile);
             fputs("<br>\n", resultFile);
           }
@@ -275,7 +295,7 @@ void WriteСonversationTxt(const cJSON *conv) {
           }
 
           // No more than MAX_EMPTY_LINES empty lines in a row
-          if (numEmptyLines < MAX_EMPTY_LINES) {
+          if (numEmptyLines <= MAX_EMPTY_LINES) {
             fprintf(resultFile, INDENT_QUOTE);
             fwrite(lineStart, 1, lineEnd - lineStart + 1, resultFile);
           }

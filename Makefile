@@ -7,4 +7,4 @@ build:
 	$(CC) $(FLAGS) src/main.c libs/cjson/cJSON.c -Ilibs/cjson -o bin/skareader
 
 clean: 
-	rm bin/skareader *.txt
+	rm bin/skareader *.txt *.html

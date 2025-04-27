@@ -144,30 +144,34 @@ void WriteСonversationHtml(const cJSON *conv) {
             "<blockquote style=\"margin-left:20px; color:gray; border-left: "
             "2px solid #ccc; padding-left: 10px;\">\n",
             resultFile);
-        // Show by lines with indent
-        size_t qLen = quoteSeparator - (cleaned_content + strlen(TIMESTAMP));
-        char *qText = strndup(cleaned_content + strlen(TIMESTAMP), qLen);
 
-        char *lineStart = qText;
-        char *lineEnd = NULL;
+        // Show by lines
+        const char *lineStart = cleaned_content + strlen(TIMESTAMP);
         int numEmptyLines = 0;
 
-        while ((lineEnd = strchr(lineStart, '\n')) != NULL) {
+        while (lineStart < quoteSeparator) {
           numEmptyLines = (*lineStart == '\n') ? numEmptyLines + 1 : 0;
+          const char *lineEnd =
+              memchr(lineStart, '\n', quoteSeparator - lineStart);
+
+          if (!lineEnd) {
+            lineEnd = quoteSeparator;
+          }
+
           // No more than MAX_EMPTY_LINES empty lines in a row
           if (numEmptyLines < MAX_EMPTY_LINES) {
-            fprintf(resultFile, INDENT_QUOTE);
-            fwrite(lineStart, 1, lineEnd - lineStart + 1, resultFile);
+            fwrite(lineStart, 1, lineEnd - lineStart, resultFile);
+            fputs("<br>\n", resultFile);
           }
-          lineStart = lineEnd + 1;
+
+          lineStart = (lineEnd < quoteSeparator) ? lineEnd + 1 : quoteSeparator;
           // Skip second last empty line
-          if (lineStart[1] == '\0') {
+          if (lineStart + 1 == quoteSeparator) {
             break;
           }
         }
 
         fputs("</blockquote><br>\n", resultFile);
-        free(qText);
       } else {
         // Show whole message
         fprintf(resultFile, "%s<br>\n<br>\n", cleaned_content);
@@ -257,29 +261,33 @@ void WriteСonversationTxt(const cJSON *conv) {
 
         fputs(INDENT_QUOTE "--------------\n", resultFile);
         // Show by lines with indent
-        size_t qLen = quoteSeparator - (cleaned_content + strlen(TIMESTAMP));
-        char *qText = strndup(cleaned_content + strlen(TIMESTAMP), qLen);
-
-        char *lineStart = qText;
-        char *lineEnd = NULL;
+        const char *lineStart = cleaned_content + strlen(TIMESTAMP);
         int numEmptyLines = 0;
 
-        while ((lineEnd = strchr(lineStart, '\n')) != NULL) {
+        while (lineStart < quoteSeparator) {
           numEmptyLines = (*lineStart == '\n') ? numEmptyLines + 1 : 0;
+
+          const char *lineEnd =
+              memchr(lineStart, '\n', quoteSeparator - lineStart);
+
+          if (!lineEnd) {
+            lineEnd = quoteSeparator;
+          }
+
           // No more than MAX_EMPTY_LINES empty lines in a row
           if (numEmptyLines < MAX_EMPTY_LINES) {
             fprintf(resultFile, INDENT_QUOTE);
             fwrite(lineStart, 1, lineEnd - lineStart + 1, resultFile);
           }
-          lineStart = lineEnd + 1;
+
+          lineStart = (lineEnd < quoteSeparator) ? lineEnd + 1 : quoteSeparator;
           // Skip second last empty line
-          if (lineStart[1] == '\0') {
+          if (lineStart + 1 == quoteSeparator) {
             break;
           }
         }
 
         fputs(INDENT_QUOTE "--------------\n\n", resultFile);
-        free(qText);
       } else {
         // Show whole message
         fprintf(resultFile, "%s\n\n", cleaned_content);

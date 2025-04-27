@@ -15,37 +15,7 @@ typedef struct {
   const char *content;
 } Msg;
 
-// char *CleanMessage(const char *content) {
-//   size_t len = strlen(content);
-//   char *cleaned = malloc(len + 1);
-//   if (!cleaned) return NULL;
-
-//   const char *src = content;
-//   char *dst = cleaned;
-//   int inside_tag = 0;
-
-//   while (*src) {
-//     if (*src == '<') {
-//       inside_tag = 1;
-//     } else if (*src == '>') {
-//       inside_tag = 0;
-//       src++;
-//       continue;
-//     } else if (!inside_tag) {
-//       if (strncmp(src, "&gt;", 4) == 0) {
-//         *dst++ = '>';
-//         src += 4;
-//         continue;
-//       } else {
-//         *dst++ = *src;
-//       }
-//     }
-//     src++;
-//   }
-
-//   *dst = '\0';
-//   return cleaned;
-// }
+int is_html = 0;
 
 int is_restricted_tag(const char *tag) {
   static char *restricted_tags[] = {"<legacyquote", "<quote ", "</quote",
@@ -70,10 +40,7 @@ char *CleanMessage(const char *content) {
 
   while (*src) {
     if (*src == '<' && is_restricted_tag(src)) {
-      while (*src != '\0') {
-        if (*src++ == '>') {
-          break;
-        }
+      while (*src != '\0' && *src++ != '>') {
       }
     } else {
       *dst++ = *src++;
@@ -100,7 +67,123 @@ void reverseMsgList(cJSON *msgArrItems) {
   msgArrItems->child = prev;
 }
 
-void WriteСonversation(const cJSON *conv) {
+void WriteСonversationHtml(const cJSON *conv) {
+  cJSON *convNameItem = cJSON_GetObjectItemCaseSensitive(conv, "displayName");
+
+  const char *convName = "UnnamedChat";
+  if (cJSON_IsString(convNameItem) && convNameItem->valuestring)
+    convName = convNameItem->valuestring;
+
+  cJSON *msgArrItems = cJSON_GetObjectItemCaseSensitive(conv, "MessageList");
+  if (!cJSON_IsArray(msgArrItems)) return;
+
+  char filename[256];
+  snprintf(filename, sizeof(filename), "%s.html", convName);
+
+  FILE *resultFile = fopen(filename, "w");
+  if (!resultFile) {
+    perror("File open error");
+    return;
+  }
+
+  // There is not actually a array in cJSON framework, it's a linked list
+  // Reverse list, because it was saved from last to first in origin
+  reverseMsgList(msgArrItems);
+
+  Msg currMsg = {0};
+  cJSON *msgItem = NULL;
+
+  cJSON_ArrayForEach(msgItem, msgArrItems) {
+    cJSON *authorItem =
+        cJSON_GetObjectItemCaseSensitive(msgItem, "displayName");
+    /* Use 'from' if 'displayName' is invalid */
+    if (!cJSON_IsString(authorItem)) {
+      authorItem = cJSON_GetObjectItemCaseSensitive(msgItem, "from");
+    }
+
+    if (cJSON_IsString(authorItem) && authorItem->valuestring) {
+      currMsg.author = authorItem->valuestring;
+    } else {
+      currMsg.author = "Unknown";
+    }
+
+    cJSON *timeItem =
+        cJSON_GetObjectItemCaseSensitive(msgItem, "originalarrivaltime");
+    if (cJSON_IsString(timeItem) && timeItem->valuestring) {
+      currMsg.time = timeItem->valuestring;
+    } else {
+      currMsg.time = "UnknownTime";
+    }
+
+    cJSON *contentItem = cJSON_GetObjectItemCaseSensitive(msgItem, "content");
+    if (cJSON_IsString(contentItem) && contentItem->valuestring) {
+      currMsg.content = contentItem->valuestring;
+    } else {
+      continue;
+    }
+
+    char formatted_time[17] = {0};
+    if (currMsg.time && strlen(currMsg.time) >= 16) {
+      strncpy(formatted_time, currMsg.time, 16);
+      formatted_time[10] = ' ';
+    } else {
+      strcpy(formatted_time, "UnknownTime");
+    }
+
+    fprintf(resultFile, "<p><strong>[%s] %s:</strong><br>\n", formatted_time,
+            currMsg.author);
+
+    char *cleaned_content = CleanMessage(currMsg.content);
+    if (cleaned_content) {
+      char *quoteSeparator = strstr(cleaned_content, QUOTE_MARK);
+      if (quoteSeparator) {
+        // First show answer, without QUOTE MARKS and first space ' '
+        fprintf(resultFile, "%s<br>\n", quoteSeparator + strlen(QUOTE_MARK));
+
+        fputs(
+            "<blockquote style=\"margin-left:20px; color:gray; border-left: "
+            "2px solid #ccc; padding-left: 10px;\">\n",
+            resultFile);
+        // Show by lines with indent
+        size_t qLen = quoteSeparator - (cleaned_content + strlen(TIMESTAMP));
+        char *qText = strndup(cleaned_content + strlen(TIMESTAMP), qLen);
+
+        char *lineStart = qText;
+        char *lineEnd = NULL;
+        int numEmptyLines = 0;
+
+        while ((lineEnd = strchr(lineStart, '\n')) != NULL) {
+          numEmptyLines = (*lineStart == '\n') ? numEmptyLines + 1 : 0;
+          // No more than MAX_EMPTY_LINES empty lines in a row
+          if (numEmptyLines < MAX_EMPTY_LINES) {
+            fprintf(resultFile, INDENT_QUOTE);
+            fwrite(lineStart, 1, lineEnd - lineStart + 1, resultFile);
+          }
+          lineStart = lineEnd + 1;
+          // Skip second last empty line
+          if (lineStart[1] == '\0') {
+            break;
+          }
+        }
+
+        fputs("</blockquote><br>\n", resultFile);
+        free(qText);
+      } else {
+        // Show whole message
+        fprintf(resultFile, "%s<br>\n<br>\n", cleaned_content);
+      }
+    } else {
+      // If empty or can't clean message, show raw
+      fprintf(resultFile, "%s<br>\n<br>\n", currMsg.content);
+    }
+
+    free(cleaned_content);
+  }
+
+  fclose(resultFile);
+}
+
+void WriteСonversationTxt(const cJSON *conv) {
   cJSON *convNameItem = cJSON_GetObjectItemCaseSensitive(conv, "displayName");
 
   const char *convName = "UnnamedChat";
@@ -214,11 +297,22 @@ void WriteСonversation(const cJSON *conv) {
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
-    fprintf(stderr, "Usage: %s <path_to_json_file>\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-h] <path_to_json_file>\n", argv[0]);
     return EXIT_FAILURE;
   }
 
-  const char *filePath = argv[1];
+  int arg_index = 1;
+  if (strcmp(argv[1], "-h") == 0) {
+    is_html = 1;
+    arg_index++;
+  }
+
+  if (argc <= arg_index) {
+    fprintf(stderr, "Missing file path after options\n");
+    return EXIT_FAILURE;
+  }
+
+  const char *filePath = argv[arg_index];
   FILE *jsonFile = fopen(filePath, "rb");
   if (!jsonFile) {
     perror("Cannot open the provided file");
@@ -261,7 +355,12 @@ int main(int argc, char *argv[]) {
   }
 
   cJSON *conv = NULL;
-  cJSON_ArrayForEach(conv, convArr) { WriteСonversation(conv); }
+
+  if (is_html) {
+    cJSON_ArrayForEach(conv, convArr) { WriteСonversationHtml(conv); }
+  } else {
+    cJSON_ArrayForEach(conv, convArr) { WriteСonversationTxt(conv); }
+  }
 
   cJSON_Delete(root);
   free(data);

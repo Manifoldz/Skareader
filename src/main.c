@@ -17,6 +17,21 @@ typedef struct {
 
 int is_html = 0;
 
+static void WriteTextBlock(FILE *resultFile, const char *text) {
+  int numEmptyLines = 0;
+
+  for (const char *p = text; *p; ++p) {
+    if (*p == '\n') {
+      if (++numEmptyLines <= MAX_EMPTY_LINES) {
+        fputs("<br>\n", resultFile);
+      }
+    } else {
+      fputc(*p, resultFile);
+      numEmptyLines = 0;
+    }
+  }
+}
+
 int is_restricted_tag(const char *tag) {
   static char *restricted_tags[] = {"<legacyquote", "<quote ", "</quote",
                                     "</legacyquote"};
@@ -92,6 +107,88 @@ void WriteСonversationHtml(const cJSON *conv) {
 
   Msg currMsg = {0};
   cJSON *msgItem = NULL;
+  fprintf(resultFile,
+          "<!DOCTYPE html>\n"
+          "<html lang=\"ru\">\n"
+          "<head>\n"
+          "<meta charset=\"UTF-8\">\n"
+          "<title>Тёмный фон с оформлением</title>\n"
+          "<style>\n"
+          "body {\n"
+          "  background-color: #1e1e2e;\n"
+          "  color: #d0d0e0;\n"
+          "  margin: 0;\n"
+          "  padding: 20px;\n"
+          "  font-family: \"Segoe UI\", Tahoma, Geneva, Verdana, sans-serif;\n"
+          "  line-height: 1.4;\n"
+          "  font-size: 14px;\n"
+          "}\n"
+          "a {\n"
+          "  color: #82aaff;\n"
+          "  text-decoration: none;\n"
+          "}\n"
+          "a:hover {\n"
+          "  color: #b0c9ff;\n"
+          "  text-decoration: underline;\n"
+          "}\n"
+          ".message {\n"
+          "  background-color: #2b2b40;\n"
+          "  padding: 12px 16px;\n"
+          "  margin: 10px 0;\n"
+          "  border-radius: 8px;\n"
+          "  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);\n"
+          "  animation: fadeIn 0.6s ease-in-out;\n"
+          "  cursor: pointer;\n"
+          "  transition: background-color 0.5s ease, transform 0.3s ease;\n"
+          "}\n"
+          ".message:hover {\n"
+          "  background-color: #3b3b5c;\n"
+          "}\n"
+          "blockquote {\n"
+          "  margin: 8px 0 0 0;\n"
+          "  padding-left: 12px;\n"
+          "  border-left: 4px solid #5f9ea0;\n"
+          "  color: #a0a0b0;\n"
+          "  font-style: italic;\n"
+          "}\n"
+          "p.author-time {\n"
+          "  margin: 0;\n"
+          "  font-weight: bold;\n"
+          "  font-size: 13px;\n"
+          "  color: #d0d0e0;\n"
+          "}\n"
+          "@keyframes fadeIn {\n"
+          "  from { opacity: 0; transform: translateY(10px); }\n"
+          "  to { opacity: 1; transform: translateY(0); }\n"
+          "}\n"
+          "</style>\n"
+          "<script>\n"
+          "document.addEventListener('DOMContentLoaded', function() {\n"
+          "  let isSelecting = false;\n"
+          "  document.addEventListener('selectionchange', function() {\n"
+          "    const selection = window.getSelection();\n"
+          "    isSelecting = selection && selection.toString().length > 0;\n"
+          "  });\n"
+          "  document.querySelectorAll('.message').forEach(function(msg) {\n"
+          "    msg.addEventListener('click', function(e) {\n"
+          "      if (isSelecting) {\n"
+          "        isSelecting = false;\n"
+          "        return;\n"
+          "      }\n"
+          "      const text = this.innerText;\n"
+          "      navigator.clipboard.writeText(text);\n"
+          "      this.style.backgroundColor = '#5c7fa3';\n"
+          "      this.style.transform = 'scale(1.03)';\n"
+          "      setTimeout(() => {\n"
+          "        this.style.backgroundColor = '#3b3b5c';\n"
+          "        this.style.transform = 'scale(1)';\n"
+          "      }, 600);\n"
+          "    });\n"
+          "  });\n"
+          "});\n"
+          "</script>\n"
+          "</head>\n"
+          "<body>\n");
 
   cJSON_ArrayForEach(msgItem, msgArrItems) {
     cJSON *authorItem =
@@ -130,42 +227,21 @@ void WriteСonversationHtml(const cJSON *conv) {
       strcpy(formatted_time, "UnknownTime");
     }
 
-    fprintf(resultFile, "<p><strong>[%s] %s:</strong><br>\n", formatted_time,
-            currMsg.author);
+    fprintf(resultFile, "<div class=\"message\">\n<p class=\"author-time\">");
+    fprintf(resultFile, "%s %s:</p>\n", formatted_time, currMsg.author);
 
     char *cleaned_content = CleanMessage(currMsg.content);
     if (cleaned_content) {
       char *quoteSeparator = strstr(cleaned_content, QUOTE_MARK);
       if (quoteSeparator) {
         // First show answer, without QUOTE MARKS and first space ' '
-        // fprintf(resultFile, "%s<br>\n", quoteSeparator + strlen(QUOTE_MARK));
+        WriteTextBlock(resultFile, quoteSeparator + strlen(QUOTE_MARK));
 
-        const char *slider = quoteSeparator + strlen(QUOTE_MARK);
-        int numEmptyLines = 0;
-
-        // TODO 1: make separate function for this with flag
-        // 1 for showing which part to write (quote or plain)
-        // second flag for showing for html or txt formatting
-        while (*slider) {
-          if (*slider == '\n') {
-            if (++numEmptyLines <= MAX_EMPTY_LINES) {
-              fputs("<br>\n", resultFile);
-            }
-          } else {
-            fputc(*slider, resultFile);
-          }
-          ++slider;
-        }
-
-        fputs(
-            "<blockquote style=\"margin-left:20px; color:gray; border-left: "
-            "2px solid #ccc; padding-left: 10px;\">\n",
-            resultFile);
-
+        fputs("<blockquote>\n", resultFile);
         // Show by lines
         const char *lineStart = cleaned_content + strlen(TIMESTAMP);
         const char *lineEnd = NULL;
-        numEmptyLines = 0;
+        int numEmptyLines = 0;
 
         // TODO 1: make separate function for this with flag
         // 1 for showing which part to write (quote or plain)
@@ -194,16 +270,18 @@ void WriteСonversationHtml(const cJSON *conv) {
         fputs("</blockquote><br>\n", resultFile);
       } else {
         // Show whole message
-        fprintf(resultFile, "%s<br>\n<br>\n", cleaned_content);
+        WriteTextBlock(resultFile, cleaned_content);
       }
     } else {
       // If empty or can't clean message, show raw
       fprintf(resultFile, "%s<br>\n<br>\n", currMsg.content);
     }
 
+    fputs("</div>\n", resultFile);
     free(cleaned_content);
   }
 
+  fputs("</body>\n</html>", resultFile);
   fclose(resultFile);
 }
 
@@ -262,6 +340,7 @@ void WriteСonversationTxt(const cJSON *conv) {
       continue;
     }
 
+    // example "2025-03-14T17:23:22.961Z"
     char formatted_time[17] = {0};
     if (currMsg.time && strlen(currMsg.time) >= 16) {
       strncpy(formatted_time, currMsg.time, 16);

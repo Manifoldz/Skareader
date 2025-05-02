@@ -146,7 +146,7 @@ static void WriteMessageHtml(FILE *file, Msg *msg) {
 
   fprintf(file,
           "<div class=\"message\">\n<p class=\"author-time\">%s %s:</p>\n",
-          formatted_time, msg->author);
+          msg->author, formatted_time);
 
   char *cleaned = CleanMessage(msg->content);
   if (cleaned) {

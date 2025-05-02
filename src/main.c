@@ -82,101 +82,46 @@ void reverseMsgList(cJSON *msgArrItems) {
   msgArrItems->child = prev;
 }
 
-void WriteСonversationHtml(const cJSON *conv) {
-  cJSON *convNameItem = cJSON_GetObjectItemCaseSensitive(conv, "displayName");
-
-  const char *convName = "UnnamedChat";
-  if (cJSON_IsString(convNameItem) && convNameItem->valuestring)
-    convName = convNameItem->valuestring;
-
-  cJSON *msgArrItems = cJSON_GetObjectItemCaseSensitive(conv, "MessageList");
-  if (!cJSON_IsArray(msgArrItems)) return;
-
-  char filename[256];
-  snprintf(filename, sizeof(filename), "%s.html", convName);
-
-  FILE *resultFile = fopen(filename, "w");
-  if (!resultFile) {
-    perror("File open error");
-    return;
-  }
-
-  // There is not actually a array in cJSON framework, it's a linked list
-  // Reverse list, because it was saved from last to first in origin
-  reverseMsgList(msgArrItems);
-
-  Msg currMsg = {0};
-  cJSON *msgItem = NULL;
-  fprintf(resultFile,
+static void WriteHtmlHeader(FILE *file, const char *title) {
+  fprintf(file,
           "<!DOCTYPE html>\n"
           "<html lang=\"ru\">\n"
           "<head>\n"
           "<meta charset=\"UTF-8\">\n"
-          "<title>Тёмный фон с оформлением</title>\n"
+          "<title>%s</title>\n"
           "<style>\n"
-          "body {\n"
-          "  background-color: #1e1e2e;\n"
-          "  color: #d0d0e0;\n"
-          "  margin: 0;\n"
-          "  padding: 20px;\n"
+          "body { background-color: #1e1e2e; color: #d0d0e0; margin: 0; "
+          "padding: 20px;\n"
           "  font-family: \"Segoe UI\", Tahoma, Geneva, Verdana, sans-serif;\n"
-          "  line-height: 1.4;\n"
-          "  font-size: 14px;\n"
-          "}\n"
-          "a {\n"
-          "  color: #82aaff;\n"
-          "  text-decoration: none;\n"
-          "}\n"
-          "a:hover {\n"
-          "  color: #b0c9ff;\n"
-          "  text-decoration: underline;\n"
-          "}\n"
-          ".message {\n"
-          "  background-color: #2b2b40;\n"
-          "  padding: 12px 16px;\n"
-          "  margin: 10px 0;\n"
-          "  border-radius: 8px;\n"
-          "  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);\n"
+          "  line-height: 1.4; font-size: 14px; }\n"
+          "a { color: #82aaff; text-decoration: none; }\n"
+          "a:hover { color: #b0c9ff; text-decoration: underline; }\n"
+          ".message { background-color: #2b2b40; padding: 12px 16px; margin: "
+          "10px 0;\n"
+          "  border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);\n"
           "  animation: fadeIn 0.6s ease-in-out;\n"
-          "  cursor: pointer;\n"
-          "  transition: background-color 0.5s ease, transform 0.3s ease;\n"
-          "}\n"
-          ".message:hover {\n"
-          "  background-color: #3b3b5c;\n"
-          "}\n"
-          "blockquote {\n"
-          "  margin: 8px 0 0 0;\n"
-          "  padding-left: 12px;\n"
-          "  border-left: 4px solid #5f9ea0;\n"
-          "  color: #a0a0b0;\n"
-          "  font-style: italic;\n"
-          "}\n"
-          "p.author-time {\n"
-          "  margin: 0;\n"
-          "  font-weight: bold;\n"
-          "  font-size: 13px;\n"
-          "  color: #d0d0e0;\n"
-          "}\n"
-          "@keyframes fadeIn {\n"
-          "  from { opacity: 0; transform: translateY(10px); }\n"
-          "  to { opacity: 1; transform: translateY(0); }\n"
-          "}\n"
+          "  cursor: pointer; transition: background-color 0.5s ease, "
+          "transform 0.3s ease; }\n"
+          ".message:hover { background-color: #3b3b5c; }\n"
+          "blockquote { margin: 8px 0 0 0; padding-left: 12px;\n"
+          "  border-left: 4px solid #5f9ea0; color: #a0a0b0; font-style: "
+          "italic; }\n"
+          "p.author-time { margin: 0; font-weight: bold; font-size: 13px; "
+          "color: #d0d0e0; }\n"
+          "@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); "
+          "} to { opacity: 1; transform: translateY(0); } }\n"
           "</style>\n"
           "<script>\n"
           "document.addEventListener('DOMContentLoaded', function() {\n"
           "  let isSelecting = false;\n"
           "  document.addEventListener('selectionchange', function() {\n"
-          "    const selection = window.getSelection();\n"
-          "    isSelecting = selection && selection.toString().length > 0;\n"
+          "    const sel = window.getSelection();\n"
+          "    isSelecting = sel && sel.toString().length > 0;\n"
           "  });\n"
           "  document.querySelectorAll('.message').forEach(function(msg) {\n"
-          "    msg.addEventListener('click', function(e) {\n"
-          "      if (isSelecting) {\n"
-          "        isSelecting = false;\n"
-          "        return;\n"
-          "      }\n"
-          "      const text = this.innerText;\n"
-          "      navigator.clipboard.writeText(text);\n"
+          "    msg.addEventListener('click', function() {\n"
+          "      if (isSelecting) { isSelecting = false; return; }\n"
+          "      navigator.clipboard.writeText(this.innerText);\n"
           "      this.style.backgroundColor = '#5c7fa3';\n"
           "      this.style.transform = 'scale(1.03)';\n"
           "      setTimeout(() => {\n"
@@ -188,101 +133,96 @@ void WriteСonversationHtml(const cJSON *conv) {
           "});\n"
           "</script>\n"
           "</head>\n"
-          "<body>\n");
+          "<body>\n",
+          title);
+}
 
-  cJSON_ArrayForEach(msgItem, msgArrItems) {
-    cJSON *authorItem =
-        cJSON_GetObjectItemCaseSensitive(msgItem, "displayName");
-    /* Use 'from' if 'displayName' is invalid */
-    if (!cJSON_IsString(authorItem)) {
-      authorItem = cJSON_GetObjectItemCaseSensitive(msgItem, "from");
-    }
-
-    if (cJSON_IsString(authorItem) && authorItem->valuestring) {
-      currMsg.author = authorItem->valuestring;
-    } else {
-      currMsg.author = "Unknown";
-    }
-
-    cJSON *timeItem =
-        cJSON_GetObjectItemCaseSensitive(msgItem, "originalarrivaltime");
-    if (cJSON_IsString(timeItem) && timeItem->valuestring) {
-      currMsg.time = timeItem->valuestring;
-    } else {
-      currMsg.time = "UnknownTime";
-    }
-
-    cJSON *contentItem = cJSON_GetObjectItemCaseSensitive(msgItem, "content");
-    if (cJSON_IsString(contentItem) && contentItem->valuestring) {
-      currMsg.content = contentItem->valuestring;
-    } else {
-      continue;
-    }
-
-    char formatted_time[17] = {0};
-    if (currMsg.time && strlen(currMsg.time) >= 16) {
-      strncpy(formatted_time, currMsg.time, 16);
-      formatted_time[10] = ' ';
-    } else {
-      strcpy(formatted_time, "UnknownTime");
-    }
-
-    fprintf(resultFile, "<div class=\"message\">\n<p class=\"author-time\">");
-    fprintf(resultFile, "%s %s:</p>\n", formatted_time, currMsg.author);
-
-    char *cleaned_content = CleanMessage(currMsg.content);
-    if (cleaned_content) {
-      char *quoteSeparator = strstr(cleaned_content, QUOTE_MARK);
-      if (quoteSeparator) {
-        // First show answer, without QUOTE MARKS and first space ' '
-        WriteTextBlock(resultFile, quoteSeparator + strlen(QUOTE_MARK));
-
-        fputs("<blockquote>\n", resultFile);
-        // Show by lines
-        const char *lineStart = cleaned_content + strlen(TIMESTAMP);
-        const char *lineEnd = NULL;
-        int numEmptyLines = 0;
-
-        // TODO 1: make separate function for this with flag
-        // 1 for showing which part to write (quote or plain)
-        // second flag for showing for html or txt formatting
-        while (lineStart < quoteSeparator) {
-          numEmptyLines = (*lineStart == '\n') ? numEmptyLines + 1 : 0;
-          lineEnd = memchr(lineStart, '\n', quoteSeparator - lineStart);
-
-          if (!lineEnd) {
-            lineEnd = quoteSeparator;
-          }
-
-          // No more than MAX_EMPTY_LINES empty lines in a row
-          if (numEmptyLines <= MAX_EMPTY_LINES) {
-            fwrite(lineStart, 1, lineEnd - lineStart, resultFile);
-            fputs("<br>\n", resultFile);
-          }
-
-          lineStart = (lineEnd < quoteSeparator) ? lineEnd + 1 : quoteSeparator;
-          // Skip second last empty line
-          if (lineStart + 1 == quoteSeparator) {
-            break;
-          }
-        }
-
-        fputs("</blockquote><br>\n", resultFile);
-      } else {
-        // Show whole message
-        WriteTextBlock(resultFile, cleaned_content);
-      }
-    } else {
-      // If empty or can't clean message, show raw
-      fprintf(resultFile, "%s<br>\n<br>\n", currMsg.content);
-    }
-
-    fputs("</div>\n", resultFile);
-    free(cleaned_content);
+static void WriteMessageHtml(FILE *file, Msg *msg) {
+  char formatted_time[17] = "UnknownTime";
+  if (msg->time && strlen(msg->time) >= 16) {
+    strncpy(formatted_time, msg->time, 16);
+    formatted_time[10] = ' ';
   }
 
-  fputs("</body>\n</html>", resultFile);
-  fclose(resultFile);
+  fprintf(file,
+          "<div class=\"message\">\n<p class=\"author-time\">%s %s:</p>\n",
+          formatted_time, msg->author);
+
+  char *cleaned = CleanMessage(msg->content);
+  if (cleaned) {
+    char *quote = strstr(cleaned, QUOTE_MARK);
+    if (quote) {
+      WriteTextBlock(file, quote + strlen(QUOTE_MARK));
+      fputs("<blockquote>\n", file);
+      const char *start = cleaned + strlen(TIMESTAMP);
+      const char *end;
+      int emptyCount = 0;
+
+      while (start < quote) {
+        end = memchr(start, '\n', quote - start);
+        if (!end) end = quote;
+        emptyCount = (*start == '\n') ? emptyCount + 1 : 0;
+        if (emptyCount <= MAX_EMPTY_LINES) {
+          fwrite(start, 1, end - start, file);
+          fputs("<br>\n", file);
+        }
+        start = (end < quote) ? end + 1 : quote;
+        if (start + 1 == quote) break;
+      }
+
+      fputs("</blockquote><br>\n", file);
+    } else {
+      WriteTextBlock(file, cleaned);
+    }
+    free(cleaned);
+  } else {
+    fprintf(file, "%s<br>\n<br>\n", msg->content);
+  }
+
+  fputs("</div>\n", file);
+}
+
+void WriteСonversationHtml(const cJSON *conv) {
+  const char *convName = "UnnamedChat";
+  cJSON *nameItem = cJSON_GetObjectItemCaseSensitive(conv, "displayName");
+  if (cJSON_IsString(nameItem) && nameItem->valuestring)
+    convName = nameItem->valuestring;
+
+  cJSON *msgArray = cJSON_GetObjectItemCaseSensitive(conv, "MessageList");
+  if (!cJSON_IsArray(msgArray)) return;
+
+  char filename[256];
+  snprintf(filename, sizeof(filename), "%s.html", convName);
+  FILE *file = fopen(filename, "w");
+  if (!file) {
+    perror("File open error");
+    return;
+  }
+
+  reverseMsgList(msgArray);
+  WriteHtmlHeader(file, filename);
+
+  Msg msg = {0};
+  cJSON *item = NULL;
+
+  cJSON_ArrayForEach(item, msgArray) {
+    cJSON *author = cJSON_GetObjectItemCaseSensitive(item, "displayName");
+    if (!cJSON_IsString(author))
+      author = cJSON_GetObjectItemCaseSensitive(item, "from");
+    msg.author = (cJSON_IsString(author)) ? author->valuestring : "Unknown";
+
+    cJSON *time = cJSON_GetObjectItemCaseSensitive(item, "originalarrivaltime");
+    msg.time = (cJSON_IsString(time)) ? time->valuestring : "UnknownTime";
+
+    cJSON *content = cJSON_GetObjectItemCaseSensitive(item, "content");
+    if (!cJSON_IsString(content)) continue;
+
+    msg.content = content->valuestring;
+    WriteMessageHtml(file, &msg);
+  }
+
+  fputs("</body>\n</html>", file);
+  fclose(file);
 }
 
 void WriteСonversationTxt(const cJSON *conv) {

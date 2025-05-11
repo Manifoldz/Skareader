@@ -36,6 +36,7 @@
 *.txt
 *.html
 bin/skareader
+*.DS_Store
 
 
 # autotools

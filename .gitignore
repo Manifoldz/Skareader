@@ -62,4 +62,4 @@ Makefile.in
 /src/Makefile.in
 
 # executables
-/src/skareader
+install/*

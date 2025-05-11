@@ -36,3 +36,30 @@
 *.txt
 *.html
 bin/skareader
+
+
+# autotools
+/aclocal.m4
+/autom4te.cache/
+/config.h
+/config.h.in
+/config.log
+/config.status
+/compile
+/depcomp
+/install-sh
+/missing
+/ltmain.sh
+/stamp-h1
+configure
+.deps
+.dirstamp
+
+# Makefile junk
+Makefile
+Makefile.in
+/src/Makefile
+/src/Makefile.in
+
+# executables
+/src/skareader

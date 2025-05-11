@@ -2,12 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../include/defines.h"
+#include "../include/html_formatter.h"
 #include "../libs/cjson/cJSON.h"
-
-#define INDENT_QUOTE "    "
-#define QUOTE_MARK "&lt;&lt;&lt; "
-#define TIMESTAMP "[1234567890] "
-#define MAX_EMPTY_LINES 2
 
 typedef struct {
   const char *author;
@@ -80,61 +77,6 @@ void reverseMsgList(cJSON *msgArrItems) {
   }
 
   msgArrItems->child = prev;
-}
-
-static void WriteHtmlHeader(FILE *file, const char *title) {
-  fprintf(file,
-          "<!DOCTYPE html>\n"
-          "<html lang=\"ru\">\n"
-          "<head>\n"
-          "<meta charset=\"UTF-8\">\n"
-          "<title>%s</title>\n"
-          "<style>\n"
-          "body { background-color: #1e1e2e; color: #d0d0e0; margin: 0; "
-          "padding: 20px;\n"
-          "  font-family: \"Segoe UI\", Tahoma, Geneva, Verdana, sans-serif;\n"
-          "  line-height: 1.4; font-size: 14px; }\n"
-          "a { color: #82aaff; text-decoration: none; }\n"
-          "a:hover { color: #b0c9ff; text-decoration: underline; }\n"
-          ".message { background-color: #2b2b40; padding: 12px 16px; margin: "
-          "10px 0;\n"
-          "  border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);\n"
-          "  animation: fadeIn 0.6s ease-in-out;\n"
-          "  cursor: pointer; transition: background-color 0.5s ease, "
-          "transform 0.3s ease; }\n"
-          ".message:hover { background-color: #3b3b5c; }\n"
-          "blockquote { margin: 8px 0 0 0; padding-left: 12px;\n"
-          "  border-left: 4px solid #5f9ea0; color: #a0a0b0; font-style: "
-          "italic; }\n"
-          "p.author-time { margin: 0; font-weight: bold; font-size: 13px; "
-          "color: #d0d0e0; }\n"
-          "@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); "
-          "} to { opacity: 1; transform: translateY(0); } }\n"
-          "</style>\n"
-          "<script>\n"
-          "document.addEventListener('DOMContentLoaded', function() {\n"
-          "  let isSelecting = false;\n"
-          "  document.addEventListener('selectionchange', function() {\n"
-          "    const sel = window.getSelection();\n"
-          "    isSelecting = sel && sel.toString().length > 0;\n"
-          "  });\n"
-          "  document.querySelectorAll('.message').forEach(function(msg) {\n"
-          "    msg.addEventListener('click', function() {\n"
-          "      if (isSelecting) { isSelecting = false; return; }\n"
-          "      navigator.clipboard.writeText(this.innerText);\n"
-          "      this.style.backgroundColor = '#5c7fa3';\n"
-          "      this.style.transform = 'scale(1.03)';\n"
-          "      setTimeout(() => {\n"
-          "        this.style.backgroundColor = '#3b3b5c';\n"
-          "        this.style.transform = 'scale(1)';\n"
-          "      }, 600);\n"
-          "    });\n"
-          "  });\n"
-          "});\n"
-          "</script>\n"
-          "</head>\n"
-          "<body>\n",
-          title);
 }
 
 static void WriteMessageHtml(FILE *file, Msg *msg) {

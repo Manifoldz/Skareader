@@ -5,5 +5,6 @@
 #define QUOTE_MARK "&lt;&lt;&lt; "
 #define TIMESTAMP "[1234567890] "
 #define MAX_EMPTY_LINES 2
+#define DIR_NAME "result_conversations"
 
 #endif

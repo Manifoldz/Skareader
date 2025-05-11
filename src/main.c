@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "../include/defines.h"
 #include "../include/html_formatter.h"
@@ -13,6 +14,17 @@ typedef struct {
 } Msg;
 
 int is_html = 0;
+
+int CreateDirectoryIfNotExists(void) {
+  struct stat st = {0};
+  if (stat(DIR_NAME, &st) == -1) {
+    if (mkdir(DIR_NAME, 0700) != 0) {
+      perror("Error creating directory");
+      return EXIT_FAILURE;
+    }
+  }
+  return EXIT_SUCCESS;
+}
 
 static void WriteTextBlock(FILE *resultFile, const char *text) {
   int numEmptyLines = 0;
@@ -134,7 +146,7 @@ void WriteСonversationHtml(const cJSON *conv) {
   if (!cJSON_IsArray(msgArray)) return;
 
   char filename[256];
-  snprintf(filename, sizeof(filename), "%s.html", convName);
+  snprintf(filename, sizeof(filename), DIR_NAME "/%s.html", convName);
   FILE *file = fopen(filename, "w");
   if (!file) {
     perror("File open error");
@@ -178,7 +190,7 @@ void WriteСonversationTxt(const cJSON *conv) {
   if (!cJSON_IsArray(msgArrItems)) return;
 
   char filename[256];
-  snprintf(filename, sizeof(filename), "%s.txt", convName);
+  snprintf(filename, sizeof(filename), DIR_NAME "/%s.txt", convName);
 
   FILE *resultFile = fopen(filename, "w");
   if (!resultFile) {
@@ -298,6 +310,11 @@ int main(int argc, char *argv[]) {
 
   if (argc <= arg_index) {
     fprintf(stderr, "Missing file path after options\n");
+    return EXIT_FAILURE;
+  }
+
+  // First of all, create a directory if it doesn't exist
+  if (CreateDirectoryIfNotExists() == EXIT_FAILURE) {
     return EXIT_FAILURE;
   }
 

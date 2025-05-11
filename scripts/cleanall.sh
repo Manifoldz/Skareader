@@ -9,7 +9,7 @@ for NAME in "${NAMES[@]}"; do
 done
 
 
-rm -rf autom4te.cache install
+rm -rf autom4te.cache install result_conversations
 
 rm -f aclocal.m4 configure config.h config.h.in config.log config.status
 
